@@ -83,3 +83,5 @@ input[type=email]{width:100%;border:1px solid var(--line);border-radius:14px;pad
 .bar .tabs{order:3;flex-basis:100%;justify-content:space-between}
 .bar .round,.bar .install-link{order:2}
 @media (min-width:560px){.bar .tabs{order:0;flex-basis:auto}}
+
+#refresh{font-size:18px;line-height:1}#refresh.spin{animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
