@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d6fb8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reels">
+<title>Reels</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+
+<header class="bar">
+  <img class="logo" src="mark.png" alt="">
+  <span class="live" id="live" hidden>LIVE</span>
+  <nav class="tabs" id="tabs" role="tablist" hidden>
+    <button role="tab" data-tab="ideas" aria-selected="true">Ideas</button>
+    <button role="tab" data-tab="film">Film</button>
+    <button role="tab" data-tab="post">Post</button>
+    <button role="tab" data-tab="taste">Taste</button>
+  </nav>
+  <button class="round" id="theme" aria-label="Toggle dark mode">◐</button>
+</header>
+
+<main id="view"><section class="card"><h2>Loading</h2></section></main>
+<div class="toast" id="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
