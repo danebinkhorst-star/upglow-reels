@@ -4,7 +4,7 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   const view = $('#view');
-  let sb, tab = 'ideas', data = { ideas: [], versions: [], clips: [], taste: [], perf: [], results: [], status: [] }, signed = {}, skipping = null, busy = false;
+  let sb, tab = 'ideas', data = { ideas: [], versions: [], clips: [], taste: [], perf: [], results: [], status: [], metrics: [], history: [] }, signed = {}, skipping = null, busy = false, selReel = null;
 
   // theme
   try { if (localStorage.getItem('dark') === '1') document.documentElement.setAttribute('data-dark', ''); } catch (e) {}
@@ -75,7 +75,7 @@
     render();
   }
   async function load() {
-    const [i, v, c, t, pf, rs, stt] = await Promise.all([
+    const [i, v, c, t, pf, rs, stt, mt, hs] = await Promise.all([
       sb.from('ideas').select('*').order('rank', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('versions').select('*').order('id'),
       sb.from('clips').select('*'),
@@ -83,9 +83,11 @@
       sb.from('perf').select('*'),
       sb.from('results').select('*'),
       sb.from('status').select('*'),
+      sb.from('metrics').select('*').order('posted_at'),
+      sb.from('metrics_history').select('ig_media_id,captured_at,views,reach,saves,shares,likes').order('captured_at'),
     ]);
     if (i.error) { view.innerHTML = `<section class="card"><h2>No access</h2><p class="sub">${esc(i.error.message)}. Log in with the owner email.</p><button class="btn" id="out">Log out</button></section>`; $('#out').onclick = () => sb.auth.signOut().then(() => location.reload()); return; }
-    data = { ideas: i.data || [], versions: v.data || [], clips: c.data || [], taste: t.data || [], perf: pf.data || [], results: rs.data || [], status: stt.data || [] };
+    data = { ideas: i.data || [], versions: v.data || [], clips: c.data || [], taste: t.data || [], perf: pf.data || [], results: rs.data || [], status: stt.data || [], metrics: mt.data || [], history: hs.data || [] };
     const n = s => data.ideas.filter(x => s.includes(x.status)).length;
     const counts = { ideas: n(['new']), film: n(['picked', 'filming']), post: n(['editing', 'ready']) };
     document.querySelectorAll('#tabs button').forEach(b => { const k = counts[b.dataset.tab]; b.innerHTML = (b.dataset.tab === 'taste' ? 'Insights' : b.dataset.tab[0].toUpperCase() + b.dataset.tab.slice(1)) + (k ? `<span class="n">${k}</span>` : ''); });
@@ -180,29 +182,70 @@
       <p class="sub">Post each version as its own Trial Reel and add its sound in Instagram.</p></section>`;
   }
 
+  // ---------- insights: charts are inline SVG, one series each (single accent hue), tap a bar to open that Reel ----------
+  const nfmt = n => n == null ? '–' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'K' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n));
+  const pct = (a, b) => b ? (100 * a / b) : null;
+  const pf1 = x => x == null ? '–' : x.toFixed(x < 10 ? 1 : 0) + '%';
+  const dshort = t => { const d = new Date(t); return d.getDate() + '/' + (d.getMonth() + 1); };
+  const med = a => { const x = a.filter(v => v != null).sort((p, q) => p - q); return x.length ? x[Math.floor(x.length / 2)] : null; };
+  function barChart(items, { unit = '', median = null, sel = null, color = 'var(--accent)', label = 'chart' } = {}) {
+    const W = 340, H = 140, L = 4, R = 4, T = 14, B = 22, n = items.length, max = Math.max(1, ...items.map(i => i.v || 0), median || 0) * 1.12;
+    const step = (W - L - R) / Math.max(n, 1), bw = Math.max(4, Math.min(22, step - 5)), y = v => T + (H - T - B) * (1 - (v || 0) / max);
+    const bars = items.map((it, k) => { const x = L + step * k + (step - bw) / 2, yy = y(it.v), h = Math.max(1, H - B - yy), on = it.id === sel;
+      return `<g data-act="reel" data-mid="${esc(it.id)}" style="cursor:pointer"><title>${esc(it.tip)}</title><rect x="${L + step * k}" y="0" width="${step}" height="${H}" fill="transparent"/>
+        <path d="M${x} ${H - B} V${yy + 3} Q${x} ${yy} ${x + 3} ${yy} H${x + bw - 3} Q${x + bw} ${yy} ${x + bw} ${yy + 3} V${H - B} Z" style="fill:${color};opacity:${on || sel == null ? 1 : .35}"/>
+        ${on || it.v === max / 1.12 ? `<text x="${x + bw / 2}" y="${yy - 4}" text-anchor="middle" font-size="10" font-weight="700" style="fill:var(--ink)">${esc(nfmt(it.v) + unit)}</text>` : ''}
+        ${k % Math.ceil(n / 8) === 0 ? `<text x="${x + bw / 2}" y="${H - 7}" text-anchor="middle" font-size="9" style="fill:var(--muted)">${esc(it.x)}</text>` : ''}</g>`; }).join('');
+    const ml = median ? `<line x1="${L}" x2="${W - R}" y1="${y(median)}" y2="${y(median)}" stroke-dasharray="3 3" style="stroke:var(--muted)" stroke-width="1"/><text x="${L + 2}" y="${y(median) - 3}" text-anchor="start" font-size="9" style="fill:var(--muted)">median ${esc(nfmt(median) + unit)}</text>` : '';
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(label)}"><line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" style="stroke:var(--line)"/>${ml}${bars}</svg>`;
+  }
+  function lineChart(pts, { label = 'growth' } = {}) {
+    if (pts.length < 2) return '<p class="sub">The growth curve fills in as the numbers change over the next hours and days.</p>';
+    const W = 340, H = 110, L = 30, R = 8, T = 10, B = 20, t0 = +new Date(pts[0].t), t1 = +new Date(pts[pts.length - 1].t) || t0 + 1, max = Math.max(1, ...pts.map(p => p.v)) * 1.1;
+    const X = t => L + (W - L - R) * ((+new Date(t) - t0) / Math.max(1, t1 - t0)), Y = v => T + (H - T - B) * (1 - v / max);
+    const d = pts.map((p, k) => (k ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' '), last = pts[pts.length - 1];
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(label)}"><line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" style="stroke:var(--line)"/><line x1="${L}" x2="${W - R}" y1="${Y(max / 1.1)}" y2="${Y(max / 1.1)}" style="stroke:var(--line)" stroke-dasharray="2 4"/>
+      <text x="${L - 4}" y="${Y(max / 1.1) + 3}" text-anchor="end" font-size="9" style="fill:var(--muted)">${esc(nfmt(max / 1.1))}</text><text x="${L}" y="${H - 6}" font-size="9" style="fill:var(--muted)">${esc(dshort(pts[0].t))}</text><text x="${W - R}" y="${H - 6}" text-anchor="end" font-size="9" style="fill:var(--muted)">${esc(dshort(last.t))}</text>
+      <path d="${d}" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--accent)"/><circle cx="${X(last.t)}" cy="${Y(last.v)}" r="4" style="fill:var(--accent);stroke:var(--glass);stroke-width:2"/></svg>`;
+  }
   function insightsHtml() {
     const R = data.results, st = (data.status.find(x => x.key === 'instagram') || {}).value || null, ago = t => { const m = Math.round((Date.now() - new Date(t)) / 6e4); return m < 2 ? 'just now' : m < 90 ? m + ' min ago' : Math.round(m / 60) + ' h ago'; };
-    const conn = !st ? `<span class="chip">Instagram: not synced yet</span>` : st.ok ? `<span class="chip" style="background:var(--ok);color:#fff">Instagram connected · ${esc(ago(st.at))} · ${esc(st.reels)} Reels read</span>` : `<span class="chip" style="background:var(--bad);color:#fff">Instagram not connected</span><p class="sub">${esc(String(st.error || '').slice(0, 140))}</p>`;
-    const posted = data.versions.filter(v => v.posted).length;
-    const med = R.length ? [...R].map(r => +r.views || 0).sort((a, b) => a - b)[Math.floor(R.length / 2)] : null;
-    const best = R.length ? [...R].sort((a, b) => b.lift - a.lift)[0] : null;
-    const hits = R.filter(r => +r.lift >= 3).length;
-    const tile = (n, l) => `<div style="background:var(--glass-2);border-radius:16px;padding:12px"><div style="font-size:22px;font-weight:700;letter-spacing:-.01em">${n}</div><div class="sub">${l}</div></div>`;
-    const stats = `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${tile(posted, 'versions posted')}${tile(R.length ? hits + ' / ' + R.length : '–', 'beat your median 3x or more')}${tile(med == null ? '–' : fmt(med), 'your median views')}${tile(best ? best.lift + 'x' : '–', best ? 'best: ' + esc((best.title || '').slice(0, 26)) : 'best post')}</div>`;
-    // A/B: versions of the same idea side by side, winner marked
-    const byIdea = {}; R.forEach(r => (byIdea[r.idea_id] ||= []).push(r));
-    const ab = Object.values(byIdea).filter(g => g.length > 1).map(g => { const top = Math.max(...g.map(x => +x.views || 0)); return `<div class="taste"><h3>${esc(g[0].title)}</h3>${g.sort((a, b) => b.views - a.views).map(r => `<div class="trow" style="grid-template-columns:1fr 54px 60px"><span>${esc(r.version_id.split('_').pop())} · ${esc((r.text || '').slice(0, 40))}<br><span class="sub">♪ ${esc((r.sound || '').slice(0, 40))}</span></span><span class="sub">${r.lift}x</span><span>${+r.views === top ? '🏆 ' : ''}${fmt(r.views)}</span></div>`).join('')}</div>`; }).join('');
-    const board = [...R].sort((a, b) => b.lift - a.lift).slice(0, 10).map(r => `<div class="trow" style="grid-template-columns:1fr 54px 60px"><span><a href="${esc(r.permalink || '#')}" target="_blank" rel="noopener">${esc(r.title)}</a><br><span class="sub">${esc(r.version_id.split('_').pop())} · ${fmt(r.saves)} saves · ${fmt(r.shares)} shares${r.watch_ms ? ' · ' + (r.watch_ms / 1000).toFixed(1) + 's watched' : ''}</span></span><span class="sub">${r.lift}x</span><span>${fmt(r.views)}</span></div>`).join('');
+    const conn = !st ? `<span class="chip">Instagram: not synced yet</span>` : st.ok ? `<span class="chip" style="background:var(--ok);color:#fff">Instagram connected · synced ${esc(ago(st.at))}</span>` : `<span class="chip" style="background:var(--bad);color:#fff">Instagram not connected</span><p class="sub">${esc(String(st.error || '').slice(0, 140))}</p>`;
+    const M = data.metrics.filter(m => m.views != null).sort((a, b) => new Date(a.posted_at) - new Date(b.posted_at));
+    const linked = Object.fromEntries(R.map(r => [r.ig_media_id, r]));
+    const rate = m => ({ save: pct((m.saves || 0) + (m.shares || 0), m.reach), eng: pct((m.likes || 0) + (m.comments || 0) + (m.saves || 0) + (m.shares || 0), m.reach), watch: m.watch_ms ? m.watch_ms / 1000 : null });
+    if (!M.length) return `<section class="card"><h2>Insights</h2>${conn}<p class="empty">No Reels read yet. They appear here within the hour once Instagram is connected.</p></section>`;
+    const medV = med(M.map(m => m.views)), totV = M.reduce((s, m) => s + (+m.views || 0), 0), best = [...M].sort((a, b) => b.views - a.views)[0];
+    const avgSave = M.reduce((s, m) => s + (rate(m).save || 0), 0) / M.length, avgW = M.filter(m => m.watch_ms).reduce((s, m) => s + m.watch_ms / 1000, 0) / Math.max(1, M.filter(m => m.watch_ms).length);
+    const last3 = M.slice(-3), prev3 = M.slice(-6, -3), tr = prev3.length ? (med(last3.map(m => m.views)) / Math.max(1, med(prev3.map(m => m.views))) - 1) * 100 : null;
+    if (!selReel || !M.some(m => m.ig_media_id === selReel)) selReel = M[M.length - 1].ig_media_id;
+    const tile = (n, l, sub = '') => `<div style="background:var(--glass-2);border-radius:16px;padding:12px;min-width:0"><div style="font-size:22px;font-weight:700;letter-spacing:-.01em">${n}</div><div class="sub">${l}</div>${sub}</div>`;
+    const tiles = `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${tile(M.length, 'Reels tracked')}${tile(nfmt(totV), 'total views')}${tile(nfmt(medV), 'median views per Reel', tr == null ? '' : `<div class="sub" style="color:${tr >= 0 ? 'var(--ok)' : 'var(--bad)'}">${tr >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(tr))}% vs previous 3</div>`)}${tile(nfmt(best.views), 'best Reel', `<div class="sub">${esc(dshort(best.posted_at))} · ${esc((best.caption || '').slice(0, 24))}</div>`)}${tile(pf1(avgSave), 'saves + shares per reach')}${tile(avgW ? avgW.toFixed(1) + 's' : '–', 'avg watch time')}</div>`;
+    const tipOf = m => `${dshort(m.posted_at)} · ${nfmt(m.views)} views · ${pf1(rate(m).save)} saves+shares · ${rate(m).watch ? rate(m).watch.toFixed(1) + 's watched' : ''}`;
+    const items = f => M.map(m => ({ id: m.ig_media_id, v: f(m), x: dshort(m.posted_at), tip: tipOf(m) }));
+    const charts = `<section class="card"><h2>Views per Reel</h2><p class="sub">Oldest to newest. Tap a bar to open that Reel.</p>${barChart(items(m => +m.views), { median: medV, sel: selReel, label: 'Views per Reel' })}</section>
+      <section class="card"><h2>Saves + shares per reach</h2><p class="sub">The signal Instagram rewards most. Higher means people want to keep or send it.</p>${barChart(items(m => rate(m).save), { unit: '%', median: med(M.map(m => rate(m).save)), sel: selReel, color: 'var(--ok)', label: 'Saves and shares per reach' })}</section>
+      <section class="card"><h2>Average watch time</h2><p class="sub">Seconds. Compare against the length of the Reel.</p>${barChart(items(m => rate(m).watch), { unit: 's', median: med(M.map(m => rate(m).watch)), sel: selReel, color: 'var(--muted)', label: 'Average watch time' })}</section>`;
+    // detail of the selected Reel
+    const m = M.find(x => x.ig_media_id === selReel), r = rate(m), L = linked[m.ig_media_id];
+    const hist = data.history.filter(h => h.ig_media_id === m.ig_media_id).map(h => ({ t: h.captured_at, v: +h.views }));
+    const vs = (v, base, f = x => x) => base ? `<span class="sub" style="color:${v >= base ? 'var(--ok)' : 'var(--muted)'}">${v >= base ? '▲' : '▼'} ${(v / base).toFixed(1)}x avg</span>` : '';
+    const stat = (n, l, extra = '') => `<div style="background:var(--glass-2);border-radius:14px;padding:10px;min-width:0"><div style="font-size:18px;font-weight:700">${n}</div><div class="sub">${l}</div>${extra}</div>`;
+    const detail = `<section class="card" id="reel-detail"><h2>${esc((m.caption || 'Reel').split('\n')[0].slice(0, 70))}</h2><p class="sub">Posted ${esc(new Date(m.posted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))} · ${esc(m.media_type || 'REELS')} · <a href="${esc(m.permalink || '#')}" target="_blank" rel="noopener">open on Instagram ↗</a></p>
+      ${L ? `<div class="chips"><span class="chip score">${esc(L.lift)}x your median</span><span class="chip">${esc(L.format || '')}</span><span class="chip">${esc(L.hook_type || '')}</span><span class="chip">♪ ${esc((L.sound || '').slice(0, 30))}</span></div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">${stat(nfmt(m.views), 'views', vs(+m.views, medV))}${stat(nfmt(m.reach), 'reach')}${stat(r.watch ? r.watch.toFixed(1) + 's' : '–', 'avg watch', vs(r.watch, avgW))}${stat(nfmt(m.saves), 'saves')}${stat(nfmt(m.shares), 'shares')}${stat(nfmt(m.likes) + ' / ' + nfmt(m.comments), 'likes / comments')}</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${stat(pf1(r.save), 'saves+shares per reach', vs(r.save, avgSave))}${stat(pf1(r.eng), 'engagement per reach')}</div>
+      <h3>Views over time</h3>${lineChart(hist, { label: 'Views over time for this Reel' })}</section>`;
+    // ranking table of every Reel
+    const rank = [...M].sort((a, b) => b.views - a.views).map(x => { const rr = rate(x); return `<div class="trow" data-act="reel" data-mid="${esc(x.ig_media_id)}" style="grid-template-columns:1fr 54px 54px;cursor:pointer;${x.ig_media_id === selReel ? 'font-weight:700' : ''}"><span>${esc((x.caption || '').split('\n')[0].slice(0, 36) || 'Reel')}<br><span class="sub">${esc(dshort(x.posted_at))}${linked[x.ig_media_id] ? ' · ' + esc(linked[x.ig_media_id].version_id.split('_').pop()) : ''}</span></span><span class="sub">${pf1(rr.save)}</span><span>${nfmt(x.views)}</span></div>`; }).join('');
+    const board = `<section class="card"><h2>All Reels</h2><p class="sub">Views, with saves+shares per reach. Tap a row to open it.</p>${rank}</section>`;
+    const byIdea = {}; R.forEach(x => (byIdea[x.idea_id] ||= []).push(x));
+    const ab = Object.values(byIdea).filter(g => g.length > 1).map(g => { const top = Math.max(...g.map(x => +x.views || 0)); return `<div class="taste"><h3>${esc(g[0].title)}</h3>${g.sort((a, b) => b.views - a.views).map(x => `<div class="trow" style="grid-template-columns:1fr 54px 60px"><span>${esc(x.version_id.split('_').pop())} · ${esc((x.text || '').slice(0, 40))}<br><span class="sub">♪ ${esc((x.sound || '').slice(0, 40))}</span></span><span class="sub">${x.lift}x</span><span>${+x.views === top ? '🏆 ' : ''}${nfmt(x.views)}</span></div>`).join('')}</div>`; }).join('');
     const wd = { format: 'Formats', hook_type: 'Hook types', topic: 'Topics', text_style: 'Text styles', creator: 'Reference creators', sound: 'Sounds', text: 'Text versions' };
-    const worked = Object.entries(wd).map(([k, label]) => {
-      const rows = data.perf.filter(p => p.dim === k).sort((a, b) => b.score - a.score).slice(0, 5);
-      if (!rows.length) return '';
-      return `<div class="taste"><h3>${label}</h3>${rows.map(r => `<div class="trow"><span>${esc(r.val)}</span><span class="meter"><i style="width:${Math.min(100, Math.round(r.score * 10))}%"></i></span><span class="sub">${r.avg_lift}x · ${r.n}</span></div>`).join('')}</div>`;
-    }).join('');
-    const empty = R.length ? '' : `<p class="empty">No numbers yet. Tap <b>Posted</b> on a version in the Post tab; once Instagram is connected its views, saves and shares show up here within the hour.</p>`;
-    return `<section class="card"><h2>Insights</h2>${conn}${stats}${empty}</section>`
-      + (board ? `<section class="card"><h2>Your Reels, best first</h2><p class="sub">Views, and how many times your median that is.</p>${board}</section>` : '')
-      + (ab ? `<section class="card"><h2>A/B tests</h2><p class="sub">Versions of the same idea. 🏆 = the one that got most views.</p>${ab}</section>` : '')
+    const worked = Object.entries(wd).map(([k, label]) => { const rows = data.perf.filter(p => p.dim === k).sort((a, b) => b.score - a.score).slice(0, 5); if (!rows.length) return ''; return `<div class="taste"><h3>${label}</h3>${rows.map(x => `<div class="trow"><span>${esc(x.val)}</span><span class="meter"><i style="width:${Math.min(100, Math.round(x.score * 10))}%"></i></span><span class="sub">${x.avg_lift}x · ${x.n}</span></div>`).join('')}</div>`; }).join('');
+    const hint = R.length ? '' : `<p class="sub">All your posted Reels are already counted above. To see which idea, text and sound each one used, tap <b>Posted</b> on new versions in the Post tab: they link to their Reel automatically.</p>`;
+    return `<section class="card"><h2>Insights</h2>${conn}${tiles}${hint}</section>${charts}${detail}${board}`
+      + (ab ? `<section class="card"><h2>A/B tests</h2><p class="sub">Versions of the same idea. 🏆 = most views.</p>${ab}</section>` : '')
       + (worked ? `<section class="card"><h2>What works for you</h2><p class="sub">Per format, hook, sound and text: average multiple of your median, and how many posts. Next week's ideas lean on this.</p>${worked}</section>` : '');
   }
   function tasteCard() {
@@ -241,6 +284,7 @@
       skipping = null; idea.status = 'skipped'; render();
       await patchIdea(idea.id, { status: 'skipped' }); await decide(idea, 'idea', 'skip', { reasons });
     }
+    if (act === 'reel') { selReel = b.dataset.mid; render(); document.getElementById('reel-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     if (act === 'dl') { b.disabled = true; try { await saveVideo(b.dataset.path, b.dataset.name); } finally { b.disabled = false; } return; }
     if (act === 'dlall') { b.disabled = true; try { const vs = data.versions.filter(v => v.idea_id === b.dataset.id && v.video_path); const files = await Promise.all(vs.map(v => fileFor(v.video_path, v.id + '.mp4'))); await shareOrDownload(files); } finally { b.disabled = false; } return; }
     if (act === 'ccap') copy(idea.caption || '', 'Caption');
