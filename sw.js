@@ -1,6 +1,6 @@
 // App shell cache so the app opens instantly; data always comes live from Supabase.
 const V = 'reels-v2';
-const SHELL = ['./', 'index.html', 'install.html', 'style.css', 'app.js', 'supabase.js', 'config.js', 'manifest.webmanifest', 'bg.jpg', 'mark.png', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'supabase.js', 'config.js', 'bg.jpg', 'mark.png', 'icon-192.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
