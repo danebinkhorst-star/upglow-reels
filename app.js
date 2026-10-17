@@ -131,6 +131,7 @@
       <div class="chips">${[i.format, i.hook_type, i.topic].filter(Boolean).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
       <details><summary>Full script</summary>${scriptHtml(i)}</details>
       ${anims ? `<div style="display:grid;gap:12px">${anims}</div>` : ''}
+      ${(i.edit?.assets || []).length ? `<details><summary>Graphics used (made for you)</summary><div class="assets" style="display:grid;gap:8px;margin-top:8px">${i.edit.assets.map(x => `<div class="row" style="font-size:13.5px"><img data-asset="${esc(x.key || '')}" alt="" style="width:44px;height:44px;object-fit:contain;background:#222;border-radius:10px"><span><b>${esc(x.label)}</b><br><span class="sub">${esc(x.note || '')}</span></span></div>`).join('')}</div></details>` : ''}
       ${texts ? `<details><summary>Text versions to test</summary><div style="display:grid;gap:6px;margin-top:8px">${texts}</div></details>` : ''}
       ${sounds ? `<details><summary>Sounds to test</summary><div style="display:grid;gap:6px;margin-top:8px">${sounds}</div></details>` : ''}
       ${skip || `<div class="row"><button class="btn primary" data-act="pick" data-id="${esc(i.id)}" ${needAnim ? 'disabled' : ''}>Pick</button><button class="btn" data-act="skip" data-id="${esc(i.id)}">Skip</button>${needAnim ? '<span class="sub">Choose an animation first</span>' : ''}</div>`}
@@ -180,6 +181,7 @@
 
   async function hydrate() {
     for (const v of view.querySelectorAll('video[data-src]')) v.src = await url(v.dataset.src);
+    for (const im of view.querySelectorAll('img[data-asset]')) if (im.dataset.asset) im.src = await url(im.dataset.asset);
   }
 
   // ---------- actions ----------
