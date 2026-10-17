@@ -24,7 +24,8 @@ a{color:inherit}
 .tabs button[aria-selected="true"]{background:var(--ink);color:var(--glass)}
 :root[data-dark] .tabs button[aria-selected="true"]{color:#1c1c1e;background:#f2f2f4}
 .tabs .n{font-size:11px;margin-left:4px;opacity:.7}
-.round{margin-left:auto;width:36px;height:36px;border-radius:50%;border:0;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);cursor:pointer}
+.round{margin-left:auto;width:36px;height:36px;border-radius:50%;border:0;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);cursor:pointer;display:grid;place-items:center;text-decoration:none}
+a.install-link{width:auto;padding:0 12px;border-radius:999px;font-size:13px;font-weight:700}
 
 main{display:grid;gap:12px;max-width:760px;margin:6px auto 0}
 .card{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-radius:var(--r);padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.08);display:grid;gap:12px;min-width:0}
