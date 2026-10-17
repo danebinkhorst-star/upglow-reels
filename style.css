@@ -79,3 +79,7 @@ details[open] summary::after{content:" ⌄"}
 input[type=email]{width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;background:var(--glass-2);color:var(--ink)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom));background:var(--ink);color:var(--glass);padding:10px 16px;border-radius:999px;font-size:13.5px;z-index:20}
 @media (min-width:700px){ .hook{font-size:26px} }
+
+.bar .tabs{order:3;flex-basis:100%;justify-content:space-between}
+.bar .round,.bar .install-link{order:2}
+@media (min-width:560px){.bar .tabs{order:0;flex-basis:auto}}
