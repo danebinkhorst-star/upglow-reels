@@ -33,12 +33,19 @@
 
   function login() {
     $('#tabs').hidden = true; $('#live').hidden = true;
-    view.innerHTML = `<section class="card"><h2>Log in</h2><p class="sub">We'll email you a login link. Open it on this phone.</p>
-      <form id="lf" class="row" style="display:grid;gap:10px"><label for="em" class="sub">Email</label><input id="em" type="email" required autocomplete="email" value="${esc(C.owner || '')}"><button class="btn primary">Send login link</button></form></section>`;
+    view.innerHTML = `<section class="card"><h2>Log in</h2><p class="sub">We email you a code. Type it here. Ignore the link in the mail.</p>
+      <form id="lf" style="display:grid;gap:10px"><label for="em" class="sub">Email</label><input id="em" type="email" required autocomplete="email" value="${esc(C.owner || '')}"><button class="btn primary">Send code</button></form>
+      <form id="cf" hidden style="display:grid;gap:10px"><label for="cd" class="sub">Code from the email</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" required style="width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;font-size:20px;letter-spacing:.2em;background:var(--glass-2);color:var(--ink)"><button class="btn primary">Log in</button></form></section>`;
     $('#lf').onsubmit = async e => {
       e.preventDefault();
-      const { error } = await sb.auth.signInWithOtp({ email: $('#em').value.trim(), options: { emailRedirectTo: location.origin + location.pathname } });
-      toast(error ? error.message : 'Check your email');
+      const { error } = await sb.auth.signInWithOtp({ email: $('#em').value.trim(), options: { shouldCreateUser: false } });
+      if (error) return toast(error.message);
+      toast('Code sent'); $('#cf').hidden = false; $('#cd').focus();
+    };
+    $('#cf').onsubmit = async e => {
+      e.preventDefault();
+      const { error } = await sb.auth.verifyOtp({ email: $('#em').value.trim(), token: $('#cd').value.trim(), type: 'email' });
+      if (error) toast(error.message);
     };
   }
 
