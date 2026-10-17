@@ -28,7 +28,7 @@
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-  sb.auth.onAuthStateChange((_e, session) => session ? start() : login());
+  sb.auth.onAuthStateChange((_e, session) => { setTimeout(() => session ? start() : login(), 0); });
   sb.auth.getSession().then(({ data: d }) => d.session ? start() : login());
 
   function login() {
