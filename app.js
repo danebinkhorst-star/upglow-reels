@@ -27,24 +27,6 @@
   sb = window.supabase.createClient(C.supabaseUrl, C.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  if (!standalone) {
-    const getapp = $('#getapp');
-    if (getapp) getapp.hidden = false;
-    window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      if (getapp) {
-        getapp.hidden = false;
-        getapp.textContent = 'Install';
-        getapp.onclick = async ev => {
-          ev.preventDefault();
-          e.prompt();
-          await e.userChoice;
-          getapp.hidden = true;
-        };
-      }
-    });
-  }
 
   sb.auth.onAuthStateChange((_e, session) => session ? start() : login());
   sb.auth.getSession().then(({ data: d }) => d.session ? start() : login());
