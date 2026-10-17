@@ -49,6 +49,15 @@
     };
   }
 
+  // refresh: header button, pull-down, and auto on return to the app
+  async function refresh() { if (!started) return; const b = $('#refresh'); b && b.classList.add('spin'); try { await load(); toast('Updated'); } finally { b && b.classList.remove('spin'); } }
+  (() => {
+    const th = $('#theme'); const b = document.createElement('button'); b.id = 'refresh'; b.className = 'round'; b.setAttribute('aria-label', 'Refresh'); b.textContent = '↻'; b.style.marginLeft = 'auto'; th.style.marginLeft = '0'; th.before(b); b.onclick = refresh;
+    let y0 = null; addEventListener('touchstart', e => { y0 = scrollY <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    addEventListener('touchend', e => { if (y0 !== null && e.changedTouches[0].clientY - y0 > 90) refresh(); y0 = null; }, { passive: true });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  })();
+
   let started = false;
   async function start() {
     if (started) return; started = true;
