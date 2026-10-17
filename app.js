@@ -4,7 +4,7 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   const view = $('#view');
-  let sb, tab = 'ideas', data = { ideas: [], versions: [], clips: [], taste: [] }, signed = {}, skipping = null, busy = false;
+  let sb, tab = 'ideas', data = { ideas: [], versions: [], clips: [], taste: [], perf: [], results: [] }, signed = {}, skipping = null, busy = false;
 
   // theme
   try { if (localStorage.getItem('dark') === '1') document.documentElement.setAttribute('data-dark', ''); } catch (e) {}
@@ -75,14 +75,16 @@
     render();
   }
   async function load() {
-    const [i, v, c, t] = await Promise.all([
+    const [i, v, c, t, pf, rs] = await Promise.all([
       sb.from('ideas').select('*').order('rank', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('versions').select('*').order('id'),
       sb.from('clips').select('*'),
       sb.from('taste').select('*'),
+      sb.from('perf').select('*'),
+      sb.from('results').select('*'),
     ]);
     if (i.error) { view.innerHTML = `<section class="card"><h2>No access</h2><p class="sub">${esc(i.error.message)}. Log in with the owner email.</p><button class="btn" id="out">Log out</button></section>`; $('#out').onclick = () => sb.auth.signOut().then(() => location.reload()); return; }
-    data = { ideas: i.data || [], versions: v.data || [], clips: c.data || [], taste: t.data || [] };
+    data = { ideas: i.data || [], versions: v.data || [], clips: c.data || [], taste: t.data || [], perf: pf.data || [], results: rs.data || [] };
     const n = s => data.ideas.filter(x => s.includes(x.status)).length;
     const counts = { ideas: n(['new']), film: n(['picked', 'filming']), post: n(['editing', 'ready']) };
     document.querySelectorAll('#tabs button').forEach(b => { const k = counts[b.dataset.tab]; b.innerHTML = b.dataset.tab[0].toUpperCase() + b.dataset.tab.slice(1) + (k ? `<span class="n">${k}</span>` : ''); });
@@ -152,11 +154,13 @@
     </section>`;
   }
 
+  const fmt = n => n == null ? '–' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n);
+  const resultLine = v => { const r = data.results.find(x => x.version_id === v.id); return r ? `<span class="sub"><b>${fmt(r.views)}</b> views · ${r.lift}x your median · ${fmt(r.saves)} saves · ${fmt(r.shares)} shares</span>` : (v.posted ? '<span class="sub">Waiting for Instagram numbers…</span>' : ''); };
   async function postCard(i) {
     const vs = data.versions.filter(v => v.idea_id === i.id);
     const items = await Promise.all(vs.map(async v => `<div class="v">
       ${v.video_path ? `<video src="${esc(await url(v.video_path))}" poster="${esc(await url(v.cover_path))}" controls playsinline preload="none"></video>` : ''}
-      <b>${esc(v.id.split('_').pop())}</b><span>${esc(v.text)}</span><span class="snd">♪ ${esc(v.sound)}</span>
+      <b>${esc(v.id.split('_').pop())}</b><span>${esc(v.text)}</span>${resultLine(v)}<span class="snd">♪ ${esc(v.sound)}</span>
       <div class="row"><button class="btn small" data-act="csound" data-v="${esc(v.id)}">Copy sound</button>
       ${v.video_path ? `<a class="btn small" href="${esc(await url(v.video_path))}" target="_blank" rel="noopener">Save</a>` : ''}
       <button class="btn small ${v.posted ? 'ok' : ''}" data-act="posted" data-v="${esc(v.id)}">${v.posted ? 'Posted ✓' : 'Posted'}</button></div></div>`));
@@ -176,7 +180,15 @@
       if (!rows.length) return '';
       return `<div class="taste"><h3>${label}</h3>${rows.map(r => `<div class="trow"><span>${esc(r.val)}</span><span class="meter"><i style="width:${Math.round(r.score * 100)}%"></i></span><span class="sub">${r.picks}/${r.picks + r.skips}</span></div>`).join('')}</div>`;
     }).join('');
-    return `<section class="card"><h2>Your taste</h2><p class="sub">${picked} picked · ${skipped} skipped. Next week's ideas lean toward what scores high here.</p>${groups || '<p class="empty">Pick or skip a few ideas and this fills in.</p>'}</section>`;
+    const wd = { format: 'Formats', hook_type: 'Hook types', topic: 'Topics', text_style: 'Text styles', creator: 'Reference creators', sound: 'Sounds', text: 'Text versions' };
+    const worked = Object.entries(wd).map(([k, label]) => {
+      const rows = data.perf.filter(p => p.dim === k).sort((a, b) => b.score - a.score).slice(0, 6);
+      if (!rows.length) return '';
+      return `<div class="taste"><h3>${label}</h3>${rows.map(r => `<div class="trow"><span>${esc(r.val)}</span><span class="meter"><i style="width:${Math.min(100, Math.round(r.score * 10))}%"></i></span><span class="sub">${r.avg_lift}x · ${r.n}</span></div>`).join('')}</div>`;
+    }).join('');
+    const nPosts = data.results.length;
+    const resultsCard = `<section class="card"><h2>What worked</h2><p class="sub">${nPosts ? `From ${nPosts} posted Reel${nPosts > 1 ? 's' : ''}: views vs your own median (x) and how many posts. Next week's ideas lean on this, not only on your picks.` : 'Fills in after you tap Posted on a version and Instagram numbers sync (about an hour).'}</p>${worked}</section>`;
+    return resultsCard + `<section class="card"><h2>Your taste</h2><p class="sub">${picked} picked · ${skipped} skipped. Next week's ideas lean toward what scores high here.</p>${groups || '<p class="empty">Pick or skip a few ideas and this fills in.</p>'}</section>`;
   }
 
   async function hydrate() {
