@@ -143,6 +143,7 @@ window.ReelsFilm = (() => {
       <div class="sx-out" id="sx-out-sum"></div>
       <div class="bar-prog" id="sx-prog" hidden><i></i><span></span></div>
       <div class="row"><button class="btn primary" id="sx-go" disabled>Upload edited clip</button></div>`);
+    el.firstChild.classList.add('auto');   // the app decides the edit; no controls are shown
     const q = s => el.querySelector(s), v = q('#sx-v');
     v.src = S.objUrl;
     const refresh = () => {
@@ -184,8 +185,9 @@ window.ReelsFilm = (() => {
       const pk = S.sug.pick; Object.assign(S.p, { in: pk.in, out: pk.out, speed: pk.speed }); S.applied = pk.id;
       q('#sx-note').innerHTML = `<b>Suggested edit:</b> ${esc(pk.note)}`;
       q('#sx-go').disabled = false; v.currentTime = S.p.in; v.play().catch(() => {}); refresh();
+      setTimeout(() => { if (!S.cancel && !S.busy) q('#sx-go').click(); }, 900);   // auto-apply the suggestion
     }, { once: true });
-    v.addEventListener('error', () => { q('#sx-info').innerHTML = '<span class="warn">This phone cannot preview that format. You can still upload it; the engine will edit it with the defaults.</span>'; S.sug = null; q('#sx-go').disabled = false; });
+    v.addEventListener('error', () => { q('#sx-info').innerHTML = '<span class="warn">This phone cannot preview that format. You can still upload it; the engine will edit it with the defaults.</span>'; S.sug = null; q('#sx-go').disabled = false; setTimeout(() => { if (!S.cancel && !S.busy) q('#sx-go').click(); }, 900); });
 
     q('#sx-nOn').checked = S.narr.on; q('#sx-nTxt').value = S.narr.text;
     q('#sx-in').oninput = e => { S.p.in = Math.min(+e.target.value, S.p.out - 0.5); S.applied = null; v.currentTime = S.p.in; refresh(); };
