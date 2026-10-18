@@ -109,7 +109,7 @@
       html = list.length ? list.map(ideaCard).join('') : `<section class="card"><h2>No new ideas</h2><p class="sub">New ideas arrive every Sunday, copied from Reels that outperformed in your format. Your picks steer the next batch.</p></section>`;
     } else if (tab === 'film') {
       const list = by(['picked', 'filming']);
-      html = list.length ? list.map(filmCard).join('') : `<section class="card"><h2>Nothing to film</h2><p class="sub">Pick ideas first. Picked ideas show up here with their shot list and an upload button per shot.</p></section>`;
+      html = ReelsFilm.voiceCard() + (list.length ? list.map(filmCard).join('') : `<section class="card"><h2>Nothing to film</h2><p class="sub">Pick ideas first. Picked ideas show up here with their shot list and an upload button per shot.</p></section>`);
     } else if (tab === 'post') {
       const list = by(['editing', 'ready', 'posted']).sort((a, b) => (a.status === 'posted') - (b.status === 'posted'));
       html = list.length ? (await Promise.all(list.map(postCard))).join('') : `<section class="card"><h2>Nothing to post yet</h2><p class="sub">After you upload the clips for an idea, the edited versions appear here within the hour.</p></section>`;
@@ -150,10 +150,11 @@
     return `<section class="card">${refHtml(i)}<h2>${esc(i.title)}</h2>
       <ol class="list">${(i.film || []).map(f => `<li>${esc(f)}</li>`).join('')}</ol>
       <details><summary>Full script</summary>${scriptHtml(i)}</details>
-      ${slots.map(sl => `<div class="slot"><span><b>${esc(sl.label || sl.id)}</b><br><span class="sub">${esc(sl.seconds ? sl.seconds + ' s' : '')}</span></span>
-        ${has(sl) ? `<span class="done">Uploaded ✓</span>` : ''}
-        <label class="btn ${has(sl) ? 'small' : 'primary'}">${has(sl) ? 'Replace' : 'Upload clip'}<input type="file" accept="video/*" hidden data-act="upload" data-id="${esc(i.id)}" data-slot="${esc(sl.id)}"></label></div>`).join('')}
-      <p class="sub">${done ? 'All clips in. Editing starts within the hour.' : 'Film in 1080p, 30 fps (Settings › Camera › Record Video) so uploads stay fast.'}</p>
+      ${slots.map(sl => { const c = data.clips.filter(x => x.idea_id === i.id && x.slot === sl.id).sort((a, b) => b.id - a.id)[0], p = c?.plan; const pt = p?.speed ? ` · ${(Math.round((p.out - p.in) / p.speed * 10) / 10)} s${p.speed !== 1 ? ' at ' + p.speed + '×' : ''}` : ''; return `<div class="slot"><span><b>${esc(sl.label || sl.id)}</b><br><span class="sub">${esc(sl.seconds ? sl.seconds + ' s shot' : '')}</span></span>
+        ${c ? `<span class="done">Uploaded ✓${esc(pt)}</span>` : ''}
+        <label class="btn ${c ? 'small' : 'primary'}">${c ? 'Replace' : 'Upload clip'}<input type="file" accept="video/*" hidden data-act="upload" data-id="${esc(i.id)}" data-slot="${esc(sl.id)}"></label></div>`; }).join('')}
+      ${i.edit?.narrator?.on ? '<p class="sub">Narrator: on (your cloned voice).</p>' : ''}
+      <p class="sub">${done ? 'All clips in. Editing starts within the hour.' : 'Any length or quality works. After you choose a clip the app shows how to trim, speed up or shrink it.'}</p>
     </section>`;
   }
 
@@ -266,6 +267,7 @@
   }
 
   // ---------- actions ----------
+  ReelsFilm.init({ sb, toast, patchIdea, load, data: () => data });
   view.addEventListener('click', async e => {
     const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'INPUT') return;
     const act = b.dataset.act, idea = data.ideas.find(x => x.id === b.dataset.id);
@@ -287,6 +289,7 @@
     if (act === 'reel') { selReel = b.dataset.mid; render(); document.getElementById('reel-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     if (act === 'dl') { b.disabled = true; try { await saveVideo(b.dataset.path, b.dataset.name); } finally { b.disabled = false; } return; }
     if (act === 'dlall') { b.disabled = true; try { const vs = data.versions.filter(v => v.idea_id === b.dataset.id && v.video_path); const files = await Promise.all(vs.map(v => fileFor(v.video_path, v.id + '.mp4'))); await shareOrDownload(files); } finally { b.disabled = false; } return; }
+    if (act === 'voice') { ReelsFilm.openVoice(); return; }
     if (act === 'ccap') copy(idea.caption || '', 'Caption');
     if (act === 'csound') copy(data.versions.find(v => v.id === b.dataset.v)?.sound || '', 'Sound');
     if (act === 'posted') {
@@ -305,15 +308,8 @@
       await decide(idea, el.dataset.act, el.checked ? 'on' : 'off', { note: arr[idx].id || arr[idx].name });
     }
     if (el.dataset.act === 'upload' && el.files[0]) {
-      const f = el.files[0], ext = (f.name.split('.').pop() || 'mov').toLowerCase();
-      const path = `clips/${idea.id}/${el.dataset.slot}-${Date.now()}.${ext}`;
-      busy = true; toast(`Uploading ${(f.size / 1e6).toFixed(0)} MB…`);
-      const { error } = await sb.storage.from('reels').upload(path, f, { contentType: f.type || 'video/quicktime', upsert: true });
-      busy = false;
-      if (error) { toast(error.message.includes('size') ? 'Clip too big. Film in 1080p 30fps' : error.message); return; }
-      await sb.from('clips').insert({ idea_id: idea.id, slot: el.dataset.slot, path });
-      if (idea.status === 'picked') await patchIdea(idea.id, { status: 'filming' });
-      toast('Uploaded'); load();
+      const f = el.files[0], slot = (idea.edit?.slots || []).find(x => x.id === el.dataset.slot) || { id: el.dataset.slot };
+      el.value = ''; ReelsFilm.openSheet(idea, slot, f);
     }
   });
 })();
