@@ -114,3 +114,9 @@ button.chip{border:0;cursor:pointer;font:inherit;font-size:12.5px;font-weight:60
 .bar-prog span{position:relative;display:block;text-align:center;font-size:12.5px;font-weight:600;line-height:26px;color:var(--ink);mix-blend-mode:normal}
 .sx-script{font-size:15px;line-height:1.5;background:var(--glass-2);border-radius:14px;padding:12px;margin:0}
 .vu{height:8px;border-radius:99px;background:var(--chip);overflow:hidden}.vu i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+
+/* auto edit: the app decides, the user sees only progress */
+.sheet-card.auto .sx-graph,.sheet-card.auto .sx-sliders,.sheet-card.auto .sx-row,.sheet-card.auto .sx-narr,.sheet-card.auto #sx-shrinkRow,.sheet-card.auto .sx-out,.sheet-card.auto #sx-go{display:none}
+.sheet-card.auto .sx-stage{max-height:30vh;opacity:.9}
+.narr-box{display:grid;gap:8px;margin-top:8px}
+.narr-box textarea{width:100%;border-radius:14px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:10px;font:inherit}
