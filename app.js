@@ -153,8 +153,9 @@
       ${slots.map(sl => { const c = data.clips.filter(x => x.idea_id === i.id && x.slot === sl.id).sort((a, b) => b.id - a.id)[0], p = c?.plan; const pt = p?.speed ? ` · ${(Math.round((p.out - p.in) / p.speed * 10) / 10)} s${p.speed !== 1 ? ' at ' + p.speed + '×' : ''}` : ''; return `<div class="slot"><span><b>${esc(sl.label || sl.id)}</b><br><span class="sub">${esc(sl.seconds ? sl.seconds + ' s shot' : '')}</span></span>
         ${c ? `<span class="done">Uploaded ✓${esc(pt)}</span>` : ''}
         <label class="btn ${c ? 'small' : 'primary'}">${c ? 'Replace' : 'Upload clip'}<input type="file" accept="video/*" hidden data-act="upload" data-id="${esc(i.id)}" data-slot="${esc(sl.id)}"></label></div>`; }).join('')}
-      ${i.edit?.narrator?.on ? '<p class="sub">Narrator: on (your cloned voice).</p>' : ''}
-      <p class="sub">${done ? 'All clips in. Editing starts within the hour.' : 'Any length or quality works. After you choose a clip the app shows how to trim, speed up or shrink it.'}</p>
+      <label class="sw"><input type="checkbox" data-act="narr" data-id="${esc(i.id)}" ${i.edit?.narrator?.on ? 'checked' : ''}> Narrator in my cloned voice</label>
+      ${i.edit?.narrator?.on ? `<div class="narr-box"><textarea rows="3" data-act="narrtxt" data-id="${esc(i.id)}" placeholder="What should the voice say?">${esc(i.edit.narrator.text || '')}</textarea>${(data.status || []).some(s => s.key === 'voice') ? '' : '<p class="sub">No voice yet. Tap "Record my voice" at the top of Film.</p>'}</div>` : ''}
+      <p class="sub">${done ? 'All clips in. Editing starts within the hour.' : 'Any length or quality works. The app cuts, speeds up and shrinks it for you.'}</p>
     </section>`;
   }
 
@@ -306,6 +307,11 @@
       const arr = structuredClone(idea[key]); arr[idx].off = !el.checked; idea[key] = arr;
       await patchIdea(idea.id, { [key]: arr });
       await decide(idea, el.dataset.act, el.checked ? 'on' : 'off', { note: arr[idx].id || arr[idx].name });
+    }
+    if (el.dataset.act === 'narr' || el.dataset.act === 'narrtxt') {
+      const n = { ...(idea.edit?.narrator || {}) };
+      if (el.dataset.act === 'narr') n.on = el.checked; else n.text = el.value;
+      idea.edit = { ...(idea.edit || {}), narrator: n }; await patchIdea(idea.id, { edit: idea.edit }); if (el.dataset.act === 'narr') render();
     }
     if (el.dataset.act === 'upload' && el.files[0]) {
       const f = el.files[0], slot = (idea.edit?.slots || []).find(x => x.id === el.dataset.slot) || { id: el.dataset.slot };
