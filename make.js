@@ -8,6 +8,7 @@ window.ReelsMake = (() => {
   const MAXN = 6;
   const PRESETS = {
     auto: { label: 'Auto', hook: 'auto', captions: 'auto', narr: 'auto', orig: 'auto', music: 'auto' },
+    cap: { label: 'Only captions', hook: 'off', captions: 'on', narr: 'off', orig: 'on', music: 'off' },
     cm: { label: 'Captions + music only', hook: 'off', captions: 'on', narr: 'off', orig: 'auto', music: 'on' },
     hm: { label: 'Hook text + music', hook: 'on', captions: 'off', narr: 'off', orig: 'auto', music: 'on' },
     clean: { label: 'Clean (just trimmed)', hook: 'off', captions: 'off', narr: 'off', orig: 'on', music: 'off' },
