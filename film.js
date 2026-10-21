@@ -293,5 +293,5 @@ window.ReelsFilm = (() => {
       <div class="row"><button class="btn ${vc ? '' : 'primary'}" data-act="voice">${vc ? 'Re-record my voice' : 'Record my voice'}</button></div></section>`;
   }
 
-  return { init, openSheet, openVoice, voiceCard, suggestions, analyzeMotion, bestWindow };
+  return { init, openSheet, openVoice, voiceCard, suggestions, analyzeMotion, bestWindow, uploadWithProgress, r1, MB, esc, once, BUCKET_MAX };
 })();
