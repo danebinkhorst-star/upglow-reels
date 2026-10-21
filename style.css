@@ -120,3 +120,12 @@ button.chip{border:0;cursor:pointer;font:inherit;font-size:12.5px;font-weight:60
 .sheet-card.auto .sx-stage{max-height:30vh;opacity:.9}
 .narr-box{display:grid;gap:8px;margin-top:8px}
 .narr-box textarea{width:100%;border-radius:14px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:10px;font:inherit}
+
+/* Make tab */
+.seg{display:inline-flex;background:var(--chip);border-radius:99px;padding:2px;flex-shrink:0}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:99px;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.mk-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mk-file{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px}
+.mk-in{width:100%;border:1px solid var(--line);border-radius:14px;padding:11px 13px;font:inherit;font-size:15px;background:var(--glass-2);color:var(--ink);box-sizing:border-box}
+.mk-pick{display:inline-block;text-align:center;cursor:pointer}
