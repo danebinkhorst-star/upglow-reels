@@ -89,7 +89,7 @@
     if (i.error) { view.innerHTML = `<section class="card"><h2>No access</h2><p class="sub">${esc(i.error.message)}. Log in with the owner email.</p><button class="btn" id="out">Log out</button></section>`; $('#out').onclick = () => sb.auth.signOut().then(() => location.reload()); return; }
     data = { ideas: i.data || [], versions: v.data || [], clips: c.data || [], taste: t.data || [], perf: pf.data || [], results: rs.data || [], status: stt.data || [], metrics: mt.data || [], history: hs.data || [] };
     const n = s => data.ideas.filter(x => s.includes(x.status)).length;
-    const counts = { ideas: n(['new']), film: n(['picked', 'filming']), post: n(['editing', 'ready']) };
+    const counts = { ideas: n(['new']), film: n(['picked', 'filming']), post: n(['editing', 'ready']), make: data.ideas.filter(x => x.status === 'quick').length };
     document.querySelectorAll('#tabs button').forEach(b => { const k = counts[b.dataset.tab]; b.innerHTML = (b.dataset.tab === 'taste' ? 'Insights' : b.dataset.tab[0].toUpperCase() + b.dataset.tab.slice(1)) + (k ? `<span class="n">${k}</span>` : ''); });
     render();
   }
@@ -113,13 +113,14 @@
     } else if (tab === 'post') {
       const list = by(['editing', 'ready', 'posted']).sort((a, b) => (a.status === 'posted') - (b.status === 'posted'));
       html = list.length ? (await Promise.all(list.map(postCard))).join('') : `<section class="card"><h2>Nothing to post yet</h2><p class="sub">After you upload the clips for an idea, the edited versions appear here within the hour.</p></section>`;
-    } else html = tasteCard();
+    } else if (tab === 'make') { if (ReelsMake.render(view)) return; html = ''; }
+    else html = tasteCard();
     view.innerHTML = html;
     hydrate();
   }
 
   const scriptHtml = i => `<div class="script">${(i.script || []).map(b => `<div class="beat"><span class="t">${esc(b.t)}</span><span>${esc(b.shot)}${b.onscreen ? `<span class="on">${esc(b.onscreen)}</span>` : ''}${b.note ? `<span class="sub" style="display:block">${esc(b.note)}</span>` : ''}</span></div>`).join('')}</div>`;
-  const refHtml = i => `<div class="ref"><span class="chip score">${esc(i.ref_score)}x</span><span>${esc((+i.ref_views || 0).toLocaleString('en'))} views</span><span>·</span><a href="${esc(i.ref_url)}" target="_blank" rel="noopener">@${esc(i.ref_creator)} original ↗</a></div>`;
+  const refHtml = i => !i.ref_url ? `<div class="ref"><span class="chip">Quick Reel</span></div>` : `<div class="ref"><span class="chip score">${esc(i.ref_score)}x</span><span>${esc((+i.ref_views || 0).toLocaleString('en'))} views</span><span>·</span><a href="${esc(i.ref_url)}" target="_blank" rel="noopener">@${esc(i.ref_creator)} original ↗</a></div>`;
 
   function ideaCard(i) {
     const anims = (i.animations || []).map((a, ai) => `<div><h3>${esc(a.label)}</h3>${a.at ? `<p class="sub">${esc(a.at)}</p>` : ''}
@@ -269,6 +270,7 @@
 
   // ---------- actions ----------
   ReelsFilm.init({ sb, toast, patchIdea, load, data: () => data });
+  ReelsMake.init({ sb, toast, load, data: () => data, url });
   view.addEventListener('click', async e => {
     const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'INPUT') return;
     const act = b.dataset.act, idea = data.ideas.find(x => x.id === b.dataset.id);
